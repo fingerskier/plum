@@ -25,7 +25,7 @@ const OPENAI_API_URL = 'https://api.openai.com/v1/responses';
 const DEFAULT_MODEL = 'o4-mini';
 
 function ensureApiKey() {
-  const apiKey = import.meta?.env?.VITE_OPENAI_API_KEY;
+  const apiKey = import.meta?.env?.VITE_OPENAI_API_KEY ?? process?.env?.VITE_OPENAI_API_KEY;
   if (!apiKey) {
     throw new Error('VITE_OPENAI_API_KEY is not set. Please configure your OpenAI API key.');
   }
