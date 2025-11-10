@@ -1,0 +1,19 @@
+{
+  "name": "plum",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "main": "electron/main.mjs",
+  "scripts": {
+    "dev": "concurrently \"npm:dev:renderer\" \"npm:dev:main\"",
+    "dev:renderer": "npm --prefix electron/app run dev",
+    "dev:main": "cross-env NODE_ENV=development VITE_DEV_SERVER_URL=http://localhost:5173 electron .",
+    "build": "npm --prefix electron/app run build",
+    "preview": "npm --prefix electron/app run preview"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "cross-env": "^7.0.3",
+    "electron": "^30.0.0"
+  }
+}
