@@ -4,19 +4,54 @@ import {
   iterateComputerControlActions,
   _parseComputerControlResponse,
 } from './computerControlClient.js';
+import { deleteOpenAIApiKey, saveOpenAIApiKey } from './apiKeyStore.js';
 
 const originalEnv = { ...import.meta.env };
 const originalProcessEnv = { ...process.env };
+const originalWindow = globalThis.window;
+const originalLocalStorage = globalThis.localStorage;
+
+function createMockLocalStorage() {
+  const store = new Map();
+  return {
+    getItem: (key) => (store.has(key) ? store.get(key) : null),
+    setItem: (key, value) => {
+      store.set(key, String(value));
+    },
+    removeItem: (key) => {
+      store.delete(key);
+    },
+    clear: () => {
+      store.clear();
+    },
+  };
+}
 
 beforeEach(() => {
   Object.assign(import.meta.env, originalEnv);
   Object.assign(process.env, originalProcessEnv);
   vi.restoreAllMocks();
+
+  const mockStorage = createMockLocalStorage();
+  globalThis.localStorage = mockStorage;
+  globalThis.window = { ...(globalThis.window ?? {}), localStorage: mockStorage };
+  deleteOpenAIApiKey();
 });
 
 afterEach(() => {
   Object.assign(import.meta.env, originalEnv);
   Object.assign(process.env, originalProcessEnv);
+  if (typeof originalLocalStorage === 'undefined') {
+    delete globalThis.localStorage;
+  } else {
+    globalThis.localStorage = originalLocalStorage;
+  }
+
+  if (typeof originalWindow === 'undefined') {
+    delete globalThis.window;
+  } else {
+    globalThis.window = originalWindow;
+  }
 });
 
 describe('sendComputerControlPrompt', () => {
@@ -24,10 +59,11 @@ describe('sendComputerControlPrompt', () => {
     delete import.meta.env.VITE_OPENAI_API_KEY;
     delete process.env.VITE_OPENAI_API_KEY;
 
-    await expect(() => sendComputerControlPrompt('hello')).rejects.toThrow(/VITE_OPENAI_API_KEY/);
+    await expect(() => sendComputerControlPrompt('hello')).rejects.toThrow(/OpenAI API key is not set/);
   });
 
   it('sends the prompt to the Responses API with attachments and defaults', async () => {
+    deleteOpenAIApiKey();
     import.meta.env.VITE_OPENAI_API_KEY = 'test-key';
     const attachments = [{ name: 'context.txt', content: 'hello', mime_type: 'text/plain' }];
     const mockResponse = {
@@ -60,7 +96,29 @@ describe('sendComputerControlPrompt', () => {
     expect(body.attachments).toEqual(attachments);
   });
 
+  it('prefers the API key stored in localStorage', async () => {
+    delete import.meta.env.VITE_OPENAI_API_KEY;
+    delete process.env.VITE_OPENAI_API_KEY;
+
+    saveOpenAIApiKey('stored-key');
+
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      text: vi.fn().mockResolvedValue(JSON.stringify({ output: [] })),
+    });
+
+    await sendComputerControlPrompt('Use stored key');
+
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      'https://api.openai.com/v1/responses',
+      expect.objectContaining({
+        headers: expect.objectContaining({ Authorization: 'Bearer stored-key' }),
+      }),
+    );
+  });
+
   it('parses text and computer actions from the response', async () => {
+    deleteOpenAIApiKey();
     import.meta.env.VITE_OPENAI_API_KEY = 'test-key';
 
     const apiResponse = {
@@ -91,6 +149,7 @@ describe('sendComputerControlPrompt', () => {
 
   it('reads the API key from process.env as a fallback', async () => {
     delete import.meta.env.VITE_OPENAI_API_KEY;
+    deleteOpenAIApiKey();
     process.env.VITE_OPENAI_API_KEY = 'process-key';
 
     globalThis.fetch = vi.fn().mockResolvedValue({

@@ -1,11 +1,18 @@
 import TestSessionsPanel from './TestSessionsPanel.jsx';
+import SettingsPanel from './SettingsPanel.jsx';
 
 export default function AppWorkspace({ activeView }) {
-  return (
-    <main className="app-workspace" role="main">
-      {activeView === 'sessions' ? (
-        <TestSessionsPanel />
-      ) : (
+  let content;
+
+  switch (activeView) {
+    case 'sessions':
+      content = <TestSessionsPanel />;
+      break;
+    case 'settings':
+      content = <SettingsPanel />;
+      break;
+    default:
+      content = (
         <section className="workspace-card">
           <h2>Welcome aboard</h2>
           <p>
@@ -13,7 +20,12 @@ export default function AppWorkspace({ activeView }) {
             display live telemetry, analytics, and controls as the application evolves.
           </p>
         </section>
-      )}
+      );
+  }
+
+  return (
+    <main className="app-workspace" role="main">
+      {content}
     </main>
   );
 }
