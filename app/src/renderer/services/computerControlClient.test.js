@@ -90,7 +90,7 @@ describe('sendComputerControlPrompt', () => {
       model: 'o4-mini',
       input: 'Launch app',
       tool_choice: 'auto',
-      tools: [{ type: 'computer' }],
+      tools: [{ type: 'computer_use_preview' }],
       temperature: 0.1,
     });
     expect(body.attachments).toEqual(attachments);
@@ -126,7 +126,7 @@ describe('sendComputerControlPrompt', () => {
         { type: 'output_text', text: 'Opening the settings.' },
         {
           type: 'tool_call',
-          name: 'computer',
+          name: 'computer_use_preview',
           input: {
             actions: [
               { type: 'mouse', action: 'move', position: { x: 10, y: 20 } },
@@ -214,7 +214,11 @@ describe('_parseComputerControlResponse', () => {
           message: {
             content: [
               { type: 'output_text', text: 'Result C' },
-              { type: 'tool_call', name: 'computer', input: { instructions: [{ type: 'mouse' }] } },
+              {
+                type: 'tool_call',
+                name: 'computer_use_preview',
+                input: { instructions: [{ type: 'mouse' }] },
+              },
             ],
           },
         },
@@ -224,5 +228,27 @@ describe('_parseComputerControlResponse', () => {
     const parsed = _parseComputerControlResponse(payload);
     expect(parsed.textSummary).toBe(['Result A', 'Result B', 'Result C'].join('\n'));
     expect(parsed.actions).toEqual([{ type: 'mouse' }]);
+  });
+
+  it('collects actions from computer_use_preview typed payloads', () => {
+    const payload = {
+      output: [
+        {
+          type: 'computer_use_preview',
+          input: {
+            steps: [
+              { type: 'mouse', action: 'move', position: { x: 5, y: 6 } },
+              { type: 'keyboard', action: 'press', key: 'B' },
+            ],
+          },
+        },
+      ],
+    };
+
+    const parsed = _parseComputerControlResponse(payload);
+    expect(parsed.actions).toEqual([
+      { type: 'mouse', action: 'move', position: { x: 5, y: 6 } },
+      { type: 'keyboard', action: 'press', key: 'B' },
+    ]);
   });
 });
