@@ -3,6 +3,7 @@ import {
   sendComputerControlPrompt,
   iterateComputerControlActions,
   _parseComputerControlResponse,
+  _clearDisplayInfoCacheForTesting,
 } from './computerControlClient.js';
 import { deleteOpenAIApiKey, saveOpenAIApiKey } from './apiKeyStore.js';
 
@@ -32,9 +33,17 @@ beforeEach(() => {
   Object.assign(process.env, originalProcessEnv);
   vi.restoreAllMocks();
 
+  _clearDisplayInfoCacheForTesting();
+
   const mockStorage = createMockLocalStorage();
   globalThis.localStorage = mockStorage;
   globalThis.window = { ...(globalThis.window ?? {}), localStorage: mockStorage };
+  const mockDisplayInfo = { width: 1920, height: 1080, colorDepth: 24 };
+  const getDisplayInfo = vi.fn().mockResolvedValue(mockDisplayInfo);
+  globalThis.window.desktop = {
+    ...(globalThis.window.desktop ?? {}),
+    getDisplayInfo,
+  };
   deleteOpenAIApiKey();
 });
 
@@ -90,10 +99,32 @@ describe('sendComputerControlPrompt', () => {
       model: 'o4-mini',
       input: 'Launch app',
       tool_choice: 'auto',
-      tools: [{ type: 'computer_use_preview' }],
       temperature: 0.1,
     });
+    expect(body.tools).toEqual([
+      {
+        type: 'computer_use_preview',
+        display_width: 1920,
+        display_height: 1080,
+        display_number_of_colors: 16777216,
+      },
+    ]);
     expect(body.attachments).toEqual(attachments);
+  });
+
+  it('merges caller supplied tools without overriding them', async () => {
+    deleteOpenAIApiKey();
+    import.meta.env.VITE_OPENAI_API_KEY = 'another-key';
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      text: vi.fn().mockResolvedValue(JSON.stringify({ output: [] })),
+    });
+
+    const tools = [{ type: 'custom_tool' }];
+    await sendComputerControlPrompt('Custom tools', { tools });
+
+    const body = JSON.parse(globalThis.fetch.mock.calls[0][1].body);
+    expect(body.tools).toEqual(tools);
   });
 
   it('prefers the API key stored in localStorage', async () => {

@@ -27,6 +27,57 @@ const OPENAI_API_URL = 'https://api.openai.com/v1/responses';
 const DEFAULT_MODEL = 'o4-mini';
 const COMPUTER_TOOL_NAMES = new Set(['computer_use_preview', 'computer_use', 'computer']);
 
+let cachedDisplayInfo;
+let displayInfoPromise;
+
+async function readDisplayInfoFromBridge() {
+  if (cachedDisplayInfo !== undefined) {
+    return cachedDisplayInfo;
+  }
+
+  if (!displayInfoPromise) {
+    displayInfoPromise = Promise.resolve()
+      .then(() => {
+        const desktopBridge = globalThis?.window?.desktop;
+        return typeof desktopBridge?.getDisplayInfo === 'function'
+          ? desktopBridge.getDisplayInfo()
+          : null;
+      })
+      .catch(() => null)
+      .then((info) => {
+        cachedDisplayInfo = info ?? null;
+        return cachedDisplayInfo;
+      });
+  }
+
+  return displayInfoPromise;
+}
+
+function buildDefaultTool(displayInfo) {
+  const tool = { type: 'computer_use_preview' };
+
+  const width = Number.isFinite(displayInfo?.width) ? Math.round(displayInfo.width) : null;
+  const height = Number.isFinite(displayInfo?.height) ? Math.round(displayInfo.height) : null;
+  const colorDepth = Number.isFinite(displayInfo?.colorDepth) ? Math.round(displayInfo.colorDepth) : null;
+
+  if (width && width > 0) {
+    tool.display_width = width;
+  }
+
+  if (height && height > 0) {
+    tool.display_height = height;
+  }
+
+  if (colorDepth && colorDepth > 0) {
+    const numberOfColors = Math.round(2 ** colorDepth);
+    if (Number.isFinite(numberOfColors) && numberOfColors > 0) {
+      tool.display_number_of_colors = numberOfColors;
+    }
+  }
+
+  return tool;
+}
+
 function ensureApiKey() {
   const storedKey = readOpenAIApiKey();
   if (storedKey) {
@@ -139,6 +190,7 @@ export async function sendComputerControlPrompt(prompt, options = {}) {
   }
 
   const apiKey = ensureApiKey();
+  const displayInfo = await readDisplayInfoFromBridge();
 
   const {
     attachments = [],
@@ -152,7 +204,7 @@ export async function sendComputerControlPrompt(prompt, options = {}) {
     model: model ?? DEFAULT_MODEL,
     input: prompt,
     tool_choice: 'auto',
-    tools: tools ?? [{ type: 'computer_use_preview' }],
+    tools: tools ?? [buildDefaultTool(displayInfo)],
   };
 
   if (attachments.length > 0) {
@@ -225,3 +277,8 @@ export function* iterateComputerControlActions(actions = [], handlers = {}) {
 }
 
 export { parseResponse as _parseComputerControlResponse };
+
+export function _clearDisplayInfoCacheForTesting() {
+  cachedDisplayInfo = undefined;
+  displayInfoPromise = undefined;
+}
