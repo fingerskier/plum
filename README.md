@@ -31,6 +31,13 @@ Use `REACT_COMPILER=1` to enable the experimental React Compiler integration whe
 building the renderer. The Electron main process continues to read from the system environment as
 usual.
 
+Add your own OpenAI API key as needed:
+
+```bash
+OPENAI_API_KEY=your-api-key-here
+```
+
+
 ### Running the app
 
 Install dependencies and launch both the renderer and the Electron shell in watch mode:
