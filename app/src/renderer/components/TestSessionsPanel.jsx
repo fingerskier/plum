@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { sendComputerControlPrompt } from '../services/computerControlClient.js';
 
@@ -11,6 +11,8 @@ function formatError(error) {
   return String(error);
 }
 
+const PROMPT_STORAGE_KEY = 'testSessionsPrompt';
+
 export default function TestSessionsPanel() {
   const [promptInput, setPromptInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -18,6 +20,39 @@ export default function TestSessionsPanel() {
   const [response, setResponse] = useState(null);
   const [error, setError] = useState('');
   const [selectedFilePath, setSelectedFilePath] = useState('');
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    try {
+      const savedPrompt = window.localStorage?.getItem(PROMPT_STORAGE_KEY);
+      if (typeof savedPrompt === 'string') {
+        setPromptInput(savedPrompt);
+      }
+    } catch (err) {
+      console.warn('Failed to load saved prompt from localStorage.', err);
+    }
+  }, []);
+
+  const persistPrompt = (value) => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    try {
+      window.localStorage?.setItem(PROMPT_STORAGE_KEY, value);
+    } catch (err) {
+      console.warn('Failed to save prompt to localStorage.', err);
+    }
+  };
+
+  const handlePromptChange = (event) => {
+    const value = event.target.value;
+    setPromptInput(value);
+    persistPrompt(value);
+  };
 
   const runPrompt = async (input, source) => {
     if (typeof input !== 'string' || !input.trim()) {
@@ -104,7 +139,7 @@ export default function TestSessionsPanel() {
               rows="6"
               placeholder="e.g. Launch the telemetry dashboard and capture a screenshot."
               value={promptInput}
-              onChange={(event) => setPromptInput(event.target.value)}
+              onChange={handlePromptChange}
               disabled={isLoading && loadingSource === 'prompt'}
             />
             <div className="session-actions">
