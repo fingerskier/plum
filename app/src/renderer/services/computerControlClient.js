@@ -2,9 +2,9 @@
  * README: Computer Control Client
  *
  * This module wraps the OpenAI Responses API to run prompts against a
- * computer-control capable model. Callers should first set the
- * `VITE_OPENAI_API_KEY` environment variable (exposed to the renderer via
- * `import.meta.env`) before importing and invoking the helpers here.
+ * computer-control capable model. Configure your OpenAI API key from the
+ * Settings panel (stored in `localStorage`) or via the `VITE_OPENAI_API_KEY`
+ * environment variable before importing and invoking the helpers here.
  *
  * Usage:
  * ```js
@@ -21,15 +21,23 @@
  * the structure expected by the Responses API.
  */
 
+import { readOpenAIApiKey } from './apiKeyStore.js';
+
 const OPENAI_API_URL = 'https://api.openai.com/v1/responses';
 const DEFAULT_MODEL = 'o4-mini';
 
 function ensureApiKey() {
-  const apiKey = import.meta?.env?.VITE_OPENAI_API_KEY ?? process?.env?.VITE_OPENAI_API_KEY;
-  if (!apiKey) {
-    throw new Error('VITE_OPENAI_API_KEY is not set. Please configure your OpenAI API key.');
+  const storedKey = readOpenAIApiKey();
+  if (storedKey) {
+    return storedKey;
   }
-  return apiKey;
+
+  const envKey = import.meta?.env?.VITE_OPENAI_API_KEY ?? process?.env?.VITE_OPENAI_API_KEY;
+  if (envKey) {
+    return envKey;
+  }
+
+  throw new Error('OpenAI API key is not set. Please add your key from the Settings panel.');
 }
 
 function normaliseActions(candidate) {
