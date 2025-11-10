@@ -6,19 +6,23 @@ import {
 } from './computerControlClient.js';
 
 const originalEnv = { ...import.meta.env };
+const originalProcessEnv = { ...process.env };
 
 beforeEach(() => {
   Object.assign(import.meta.env, originalEnv);
+  Object.assign(process.env, originalProcessEnv);
   vi.restoreAllMocks();
 });
 
 afterEach(() => {
   Object.assign(import.meta.env, originalEnv);
+  Object.assign(process.env, originalProcessEnv);
 });
 
 describe('sendComputerControlPrompt', () => {
   it('throws when the API key is missing', async () => {
     delete import.meta.env.VITE_OPENAI_API_KEY;
+    delete process.env.VITE_OPENAI_API_KEY;
 
     await expect(() => sendComputerControlPrompt('hello')).rejects.toThrow(/VITE_OPENAI_API_KEY/);
   });
@@ -83,6 +87,25 @@ describe('sendComputerControlPrompt', () => {
     const result = await sendComputerControlPrompt('Open settings');
     expect(result.textSummary).toBe('Opening the settings.');
     expect(result.actions).toEqual(apiResponse.output[1].input.actions);
+  });
+
+  it('reads the API key from process.env as a fallback', async () => {
+    delete import.meta.env.VITE_OPENAI_API_KEY;
+    process.env.VITE_OPENAI_API_KEY = 'process-key';
+
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      text: vi.fn().mockResolvedValue(JSON.stringify({ output: [] })),
+    });
+
+    await sendComputerControlPrompt('Use fallback key');
+
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      'https://api.openai.com/v1/responses',
+      expect.objectContaining({
+        headers: expect.objectContaining({ Authorization: 'Bearer process-key' }),
+      }),
+    );
   });
 });
 

@@ -1,5 +1,8 @@
 import { app, BrowserWindow, dialog, ipcMain } from 'electron';
 import path from 'node:path';
+import { config as loadEnv } from 'dotenv';
+
+loadEnv({ path: path.resolve(__dirname, '../.env') });
 import { readFile } from 'node:fs/promises';
 import started from 'electron-squirrel-startup';
 
