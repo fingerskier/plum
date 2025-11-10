@@ -1,5 +1,7 @@
 node_modules/
 dist/
+app/dist/
+app/.vite/
 **/.env*
 .DS_Store
 vite.config.ts
