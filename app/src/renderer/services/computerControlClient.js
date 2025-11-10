@@ -25,6 +25,7 @@ import { readOpenAIApiKey } from './apiKeyStore.js';
 
 const OPENAI_API_URL = 'https://api.openai.com/v1/responses';
 const DEFAULT_MODEL = 'o4-mini';
+const COMPUTER_TOOL_NAMES = new Set(['computer_use_preview', 'computer_use', 'computer']);
 
 function ensureApiKey() {
   const storedKey = readOpenAIApiKey();
@@ -93,7 +94,7 @@ function extractOutputs(payload) {
   }
 
   if (Array.isArray(payload?.actions)) {
-    outputs.push({ type: 'tool_call', name: 'computer', input: { actions: payload.actions } });
+    outputs.push({ type: 'tool_call', name: 'computer_use_preview', input: { actions: payload.actions } });
   }
 
   return outputs;
@@ -117,9 +118,11 @@ function parseResponse(payload) {
       continue;
     }
 
-    if (type === 'tool_call' || type === 'computer') {
+    if (type === 'tool_call' || COMPUTER_TOOL_NAMES.has(type)) {
       const toolName = item.name ?? item.tool_name ?? item.tool?.name ?? item.tool;
-      if (toolName === 'computer' || type === 'computer') {
+      const isComputerTool =
+        COMPUTER_TOOL_NAMES.has(toolName) || COMPUTER_TOOL_NAMES.has(type);
+      if (isComputerTool) {
         const toolInput = item.input ?? item.arguments ?? item.tool_input ?? item.payload ?? item;
         actions.push(...normaliseActions(toolInput));
       }
@@ -149,7 +152,7 @@ export async function sendComputerControlPrompt(prompt, options = {}) {
     model: model ?? DEFAULT_MODEL,
     input: prompt,
     tool_choice: 'auto',
-    tools: tools ?? [{ type: 'computer' }],
+    tools: tools ?? [{ type: 'computer_use_preview' }],
   };
 
   if (attachments.length > 0) {
