@@ -1,5 +1,6 @@
-import { app, BrowserWindow } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain } from 'electron';
 import path from 'node:path';
+import { readFile } from 'node:fs/promises';
 import started from 'electron-squirrel-startup';
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
@@ -27,6 +28,23 @@ const createWindow = () => {
   // Open the DevTools.
   mainWindow.webContents.openDevTools();
 };
+
+ipcMain.handle('computer-control:open-text-file', async () => {
+  const browserWindow = BrowserWindow.getFocusedWindow();
+  const result = await dialog.showOpenDialog(browserWindow, {
+    title: 'Select a text file',
+    properties: ['openFile'],
+    filters: [{ name: 'Text files', extensions: ['txt'] }],
+  });
+
+  if (result.canceled || !result.filePaths?.length) {
+    return null;
+  }
+
+  const filePath = result.filePaths[0];
+  const contents = await readFile(filePath, 'utf8');
+  return { path: filePath, contents };
+});
 
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
