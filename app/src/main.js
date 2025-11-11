@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, screen } from 'electron';
 import path from 'node:path';
 import { config as loadEnv } from 'dotenv';
 
@@ -47,6 +47,20 @@ ipcMain.handle('computer-control:open-text-file', async () => {
   const filePath = result.filePaths[0];
   const contents = await readFile(filePath, 'utf8');
   return { path: filePath, contents };
+});
+
+ipcMain.handle('computer-control:get-display-info', () => {
+  const primaryDisplay = screen.getPrimaryDisplay();
+  const {
+    size: { width, height } = { width: undefined, height: undefined },
+    colorDepth,
+  } = primaryDisplay ?? {};
+
+  return {
+    width,
+    height,
+    colorDepth,
+  };
 });
 
 // This method will be called when Electron has finished
